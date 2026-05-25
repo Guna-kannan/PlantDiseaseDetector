@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  plant-disease-detector:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./static/uploads:/app/static/uploads
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

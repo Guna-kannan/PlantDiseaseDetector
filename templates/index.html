@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlantDiseaseDetector</title>
+    <style>
+        :root {
+            --bg: #0d1f0d;
+            --panel: #132b13;
+            --panel-2: #183818;
+            --text: #eef8ee;
+            --muted: #a8c5a8;
+            --accent: #5cb85c;
+            --accent-strong: #7ad67a;
+            --danger: #d9534f;
+            --warning: #f0ad4e;
+            --line: rgba(92, 184, 92, 0.35);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        main {
+            width: min(1080px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 40px 0;
+        }
+
+        header {
+            margin-bottom: 28px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            color: var(--accent-strong);
+            font-size: clamp(2rem, 5vw, 4rem);
+            line-height: 1;
+            letter-spacing: 0;
+        }
+
+        .subtitle {
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+            gap: 24px;
+            align-items: start;
+        }
+
+        .upload-panel,
+        .result-panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 22px;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+        }
+
+        .upload-area {
+            min-height: 270px;
+            border: 2px dashed var(--accent);
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            padding: 22px;
+            cursor: pointer;
+            background: rgba(92, 184, 92, 0.06);
+            transition: border-color 160ms ease, background 160ms ease;
+            overflow: hidden;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            background: rgba(92, 184, 92, 0.13);
+            border-color: var(--accent-strong);
+        }
+
+        .upload-empty {
+            text-align: center;
+        }
+
+        .upload-mark {
+            width: 58px;
+            height: 58px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--line);
+            color: var(--accent-strong);
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .upload-title {
+            display: block;
+            color: var(--text);
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .upload-note {
+            display: block;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #preview {
+            display: none;
+            width: 100%;
+            max-height: 390px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        button {
+            min-height: 44px;
+            border: 0;
+            border-radius: 8px;
+            padding: 0 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.62;
+        }
+
+        #predict-btn {
+            display: none;
+            background: var(--accent);
+            color: #071507;
+        }
+
+        #predict-btn:hover {
+            background: var(--accent-strong);
+        }
+
+        #clear-btn {
+            display: none;
+            background: #274727;
+            color: var(--text);
+            border: 1px solid var(--line);
+        }
+
+        .status {
+            min-height: 24px;
+            margin-top: 14px;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .error {
+            display: none;
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(217, 83, 79, 0.55);
+            background: rgba(217, 83, 79, 0.12);
+            color: #ffc1bf;
+        }
+
+        .result-panel {
+            display: none;
+        }
+
+        .result-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .disease-name {
+            margin: 0;
+            color: var(--accent-strong);
+            font-size: clamp(1.25rem, 3vw, 2rem);
+            line-height: 1.16;
+            overflow-wrap: anywhere;
+        }
+
+        .badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            min-width: 150px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            min-height: 30px;
+            padding: 0 10px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .confidence {
+            background: var(--accent);
+            color: #071507;
+        }
+
+        .severity-none {
+            background: var(--accent);
+            color: #071507;
+        }
+
+        .severity-moderate {
+            background: var(--warning);
+            color: #211500;
+        }
+
+        .severity-high {
+            background: var(--danger);
+            color: #ffffff;
+        }
+
+        .info-block {
+            padding-top: 16px;
+            border-top: 1px solid var(--line);
+            margin-top: 16px;
+        }
+
+        .info-block h3 {
+            margin: 0 0 8px;
+            color: var(--accent-strong);
+            font-size: 0.88rem;
+            text-transform: uppercase;
+            letter-spacing: 0;
+        }
+
+        .info-block p {
+            margin: 0;
+            color: #d9ead9;
+            line-height: 1.6;
+        }
+
+        .top3-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .top3-row {
+            display: grid;
+            gap: 6px;
+        }
+
+        .top3-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: #d9ead9;
+            font-size: 0.92rem;
+        }
+
+        .top3-name {
+            overflow-wrap: anywhere;
+        }
+
+        .progress-track {
+            height: 9px;
+            border-radius: 999px;
+            background: #071507;
+            overflow: hidden;
+            border: 1px solid rgba(92, 184, 92, 0.15);
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            border-radius: inherit;
+            transition: width 360ms ease;
+        }
+
+        @media (max-width: 820px) {
+            main {
+                width: min(100% - 24px, 680px);
+                padding: 28px 0;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .result-top {
+                display: grid;
+            }
+
+            .badges {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>PlantDiseaseDetector</h1>
+            <p class="subtitle">CNN-based leaf disease classification for tomato, potato, and bell pepper images.</p>
+        </header>
+
+        <section class="layout">
+            <div class="upload-panel">
+                <label id="upload-area" class="upload-area" for="file-input">
+                    <span id="upload-empty" class="upload-empty">
+                        <span class="upload-mark">+</span>
+                        <span class="upload-title">Select a leaf image</span>
+                        <span class="upload-note">JPG, PNG, and other browser-supported image files</span>
+                    </span>
+                    <img id="preview" src="" alt="Selected leaf preview">
+                </label>
+                <input id="file-input" type="file" accept="image/*">
+
+                <div class="actions">
+                    <button id="predict-btn" type="button">Detect Disease</button>
+                    <button id="clear-btn" type="button">Clear</button>
+                </div>
+
+                <div id="status" class="status"></div>
+                <div id="error" class="error"></div>
+            </div>
+
+            <article id="result-panel" class="result-panel">
+                <div class="result-top">
+                    <h2 id="disease-name" class="disease-name"></h2>
+                    <div class="badges">
+                        <span id="confidence-badge" class="badge confidence"></span>
+                        <span id="severity-badge" class="badge"></span>
+                    </div>
+                </div>
+
+                <div class="info-block">
+                    <h3>Description</h3>
+                    <p id="description"></p>
+                </div>
+
+                <div class="info-block">
+                    <h3>Treatment</h3>
+                    <p id="treatment"></p>
+                </div>
+
+                <div class="info-block">
+                    <h3>Top 3 Predictions</h3>
+                    <div id="top3-list" class="top3-list"></div>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <script>
+        const fileInput = document.getElementById("file-input");
+        const uploadArea = document.getElementById("upload-area");
+        const uploadEmpty = document.getElementById("upload-empty");
+        const preview = document.getElementById("preview");
+        const predictBtn = document.getElementById("predict-btn");
+        const clearBtn = document.getElementById("clear-btn");
+        const statusBox = document.getElementById("status");
+        const errorBox = document.getElementById("error");
+        const resultPanel = document.getElementById("result-panel");
+
+        let selectedFile = null;
+
+        fileInput.addEventListener("change", () => {
+            setFile(fileInput.files[0]);
+        });
+
+        uploadArea.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            uploadArea.classList.add("dragover");
+        });
+
+        uploadArea.addEventListener("dragleave", () => {
+            uploadArea.classList.remove("dragover");
+        });
+
+        uploadArea.addEventListener("drop", (event) => {
+            event.preventDefault();
+            uploadArea.classList.remove("dragover");
+            setFile(event.dataTransfer.files[0]);
+        });
+
+        predictBtn.addEventListener("click", runPrediction);
+        clearBtn.addEventListener("click", clearSelection);
+
+        function setFile(file) {
+            clearMessage();
+
+            if (!file) {
+                return;
+            }
+
+            if (!file.type || !file.type.startsWith("image/")) {
+                showError("Please choose an image file.");
+                return;
+            }
+
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = () => {
+                preview.src = reader.result;
+                preview.style.display = "block";
+                uploadEmpty.style.display = "none";
+                predictBtn.style.display = "inline-flex";
+                clearBtn.style.display = "inline-flex";
+                resultPanel.style.display = "none";
+                statusBox.textContent = file.name;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function runPrediction() {
+            if (!selectedFile) {
+                showError("Select an image before running detection.");
+                return;
+            }
+
+            predictBtn.disabled = true;
+            clearMessage();
+            statusBox.textContent = "Analyzing image...";
+            resultPanel.style.display = "none";
+
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+
+            try {
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    showError(data.error || "Prediction failed.");
+                    return;
+                }
+
+                renderResult(data);
+                statusBox.textContent = "Prediction complete.";
+            } catch (error) {
+                showError("Unable to reach the prediction service.");
+            } finally {
+                predictBtn.disabled = false;
+            }
+        }
+
+        function renderResult(data) {
+            document.getElementById("disease-name").textContent = formatClassName(data.predicted_class);
+            document.getElementById("confidence-badge").textContent = `${data.confidence}% confidence`;
+            document.getElementById("description").textContent = data.description;
+            document.getElementById("treatment").textContent = data.treatment;
+
+            const severityBadge = document.getElementById("severity-badge");
+            const severity = String(data.severity || "Unknown");
+            severityBadge.textContent = `Severity: ${severity}`;
+            severityBadge.className = `badge severity-${severity.toLowerCase()}`;
+
+            const top3List = document.getElementById("top3-list");
+            top3List.innerHTML = "";
+            data.top3.forEach((item) => {
+                const row = document.createElement("div");
+                row.className = "top3-row";
+
+                const meta = document.createElement("div");
+                meta.className = "top3-meta";
+
+                const name = document.createElement("span");
+                name.className = "top3-name";
+                name.textContent = formatClassName(item.class);
+
+                const confidence = document.createElement("strong");
+                confidence.textContent = `${item.confidence}%`;
+
+                const track = document.createElement("div");
+                track.className = "progress-track";
+
+                const bar = document.createElement("div");
+                bar.className = "progress-bar";
+                bar.style.width = `${Math.max(0, Math.min(100, item.confidence))}%`;
+
+                meta.appendChild(name);
+                meta.appendChild(confidence);
+                track.appendChild(bar);
+                row.appendChild(meta);
+                row.appendChild(track);
+                top3List.appendChild(row);
+            });
+
+            resultPanel.style.display = "block";
+        }
+
+        function formatClassName(name) {
+            return String(name)
+                .replace(/___/g, " - ")
+                .replace(/__/g, " ")
+                .replace(/_/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+        }
+
+        function clearSelection() {
+            selectedFile = null;
+            fileInput.value = "";
+            preview.src = "";
+            preview.style.display = "none";
+            uploadEmpty.style.display = "block";
+            predictBtn.style.display = "none";
+            clearBtn.style.display = "none";
+            resultPanel.style.display = "none";
+            statusBox.textContent = "";
+            clearMessage();
+        }
+
+        function showError(message) {
+            errorBox.textContent = message;
+            errorBox.style.display = "block";
+            statusBox.textContent = "";
+        }
+
+        function clearMessage() {
+            errorBox.textContent = "";
+            errorBox.style.display = "none";
+        }
+    </script>
+</body>
+</html>
