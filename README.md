@@ -100,13 +100,13 @@ models/training_history.png
 Run the web app:
 
 ```bash
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 Open:
 
 ```text
-http://localhost:8000
+http://localhost:8001
 ```
 
 ## API
@@ -193,3 +193,7 @@ models/training_history.png
 ```
 
 Add your trained metrics here after running training on the downloaded PlantVillage dataset.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

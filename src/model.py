@@ -174,7 +174,11 @@ def plot_training_history(history: tf.keras.callbacks.History, output_path: str 
     print(f"Training history plot saved to {output_path}")
 
 
-def train(data_dir: str, model_save_path: str = MODEL_SAVE_PATH) -> tuple[tf.keras.Model, tf.keras.callbacks.History, tf.data.Dataset]:
+def train(
+    data_dir: str,
+    model_save_path: str = MODEL_SAVE_PATH,
+    epochs: int = EPOCHS,
+) -> tuple[tf.keras.Model, tf.keras.callbacks.History, tf.data.Dataset]:
     """Train the CNN and save the best/final model plus training curves."""
     Path(model_save_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -200,11 +204,11 @@ def train(data_dir: str, model_save_path: str = MODEL_SAVE_PATH) -> tuple[tf.ker
         ),
     ]
 
-    print(f"Training for up to {EPOCHS} epochs...")
+    print(f"Training for up to {epochs} epochs...")
     history = model.fit(
         train_ds,
         validation_data=val_ds,
-        epochs=EPOCHS,
+        epochs=epochs,
         callbacks=callbacks,
     )
 
@@ -275,6 +279,12 @@ def parse_args() -> argparse.Namespace:
         default=MODEL_SAVE_PATH,
         help="Where to save the trained Keras model.",
     )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=EPOCHS,
+        help=f"Number of epochs to train (default: {EPOCHS}).",
+    )
     return parser.parse_args()
 
 
@@ -286,4 +296,4 @@ if __name__ == "__main__":
             "Download PlantVillage from https://www.kaggle.com/datasets/arjuntejaswi/plant-village "
             "and place it at data/PlantVillage/."
         )
-    train(args.data_dir, args.model_path)
+    train(args.data_dir, args.model_path, epochs=args.epochs)
