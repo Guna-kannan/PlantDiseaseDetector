@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plant-disease-detector
+  labels:
+    app: plant-disease-detector
+    app.kubernetes.io/name: plant-disease-detector
+    app.openshift.io/runtime: python
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: plant-disease-detector
+  template:
+    metadata:
+      labels:
+        app: plant-disease-detector
+    spec:
+      containers:
+        - name: plant-disease-detector
+          image: image-registry.openshift-image-registry.svc:5000/plant-disease-detector/plant-disease-detector:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PORT
+              value: "8000"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1536Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 25
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+

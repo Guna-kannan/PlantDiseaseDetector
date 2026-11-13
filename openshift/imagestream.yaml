@@ -1,0 +1,10 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: plant-disease-detector
+  labels:
+    app.kubernetes.io/name: plant-disease-detector
+spec:
+  lookupPolicy:
+    local: true
+

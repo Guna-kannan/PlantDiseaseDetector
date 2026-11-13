@@ -1,0 +1,24 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: plant-disease-detector
+  labels:
+    app.kubernetes.io/name: plant-disease-detector
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/Guna-kannan/PlantDiseaseDetector.git
+      ref: main
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: plant-disease-detector:latest
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+

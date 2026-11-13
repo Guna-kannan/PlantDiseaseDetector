@@ -1,0 +1,17 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plant-disease-detector
+  labels:
+    app: plant-disease-detector
+spec:
+  to:
+    kind: Service
+    name: plant-disease-detector
+    weight: 100
+  port:
+    targetPort: 8000-tcp
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+

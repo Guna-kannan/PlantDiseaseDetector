@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: plant-disease-detector
+  labels:
+    app: plant-disease-detector
+spec:
+  ports:
+    - name: 8000-tcp
+      port: 8000
+      protocol: TCP
+      targetPort: 8000
+  selector:
+    app: plant-disease-detector
+

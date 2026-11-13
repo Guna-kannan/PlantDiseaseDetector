@@ -12,6 +12,7 @@ env/
 .vscode/
 .idea/
 *.iml
+*.code-workspace
 
 # OS
 .DS_Store

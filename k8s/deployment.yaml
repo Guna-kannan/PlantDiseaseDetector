@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plant-disease-detector
+  namespace: plant-disease-detector
+  labels:
+    app.kubernetes.io/name: plant-disease-detector
+    app.kubernetes.io/component: inference-api
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 2  # Multi-pod application architecture
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: plant-disease-detector
+  template:
+    metadata:
+      labels:
+        app: plant-disease-detector
+        app.kubernetes.io/name: plant-disease-detector
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: detector
+          image: quay.io/gunakannan/plant-disease-detector:v1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PORT
+              value: "8000"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1536Mi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+          volumeMounts:
+            - name: model-storage
+              mountPath: /app/models
+              readOnly: true
+            - name: upload-storage
+              mountPath: /app/static/uploads
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: plant-model-pvc
+        - name: upload-storage
+          persistentVolumeClaim:
+            claimName: plant-uploads-pvc
+

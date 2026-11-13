@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: plant-model-pvc
+  namespace: plant-disease-detector
+  labels:
+    app.kubernetes.io/name: plant-disease-detector
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: plant-uploads-pvc
+  namespace: plant-disease-detector
+  labels:
+    app.kubernetes.io/name: plant-disease-detector
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+

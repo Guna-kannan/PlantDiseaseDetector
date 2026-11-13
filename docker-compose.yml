@@ -1,12 +1,44 @@
-
 services:
+  # Core Machine Learning & API Service (FastAPI)
   plant-disease-detector:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: plant-disease-detector-app
+    expose:
+      - "8000"
     ports:
-      - "8001:8000"
+      - "8001:8000" # Direct access for API testing and local debugging
     volumes:
-      - ./models:/app/models
-      - ./static/uploads:/app/static/uploads
+      - ./models:/app/models:ro # Read-only model weights persistence
+      - ./static/uploads:/app/static/uploads:rw # Read-write storage for inference uploads
     environment:
       - PYTHONUNBUFFERED=1
+    networks:
+      - plant-net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Reverse Proxy & Web Server (Multi-container architecture)
+  nginx:
+    image: nginx:alpine
+    container_name: plant-disease-detector-nginx
+    ports:
+      - "8080:80" # External client entry point
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      plant-disease-detector:
+        condition: service_healthy
+    networks:
+      - plant-net
+    restart: unless-stopped
+
+networks:
+  plant-net:
+    driver: bridge
