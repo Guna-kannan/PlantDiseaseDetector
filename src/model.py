@@ -16,9 +16,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
 
-IMAGE_SIZE = 256
-BATCH_SIZE = 32
-EPOCHS = 50
+IMAGE_SIZE = 224
+BATCH_SIZE = 64
+EPOCHS = 10
 CHANNELS = 3
 
 CLASS_NAMES = [
@@ -46,24 +46,30 @@ SEED = 123
 
 
 def load_dataset(data_dir: str) -> Tuple[tf.data.Dataset, tf.data.Dataset, tf.data.Dataset]:
-    """Load PlantVillage images and split them into 80/10/10 train/val/test sets."""
-    dataset = tf.keras.preprocessing.image_dataset_from_directory(
+    """Load PlantVillage images with deterministic train (80%), validation (10%), and test (10%) splits."""
+    train_ds = tf.keras.preprocessing.image_dataset_from_directory(
         data_dir,
         class_names=CLASS_NAMES,
-        shuffle=True,
+        validation_split=0.2,
+        subset="training",
         seed=SEED,
         image_size=(IMAGE_SIZE, IMAGE_SIZE),
         batch_size=BATCH_SIZE,
     )
 
-    total_batches = tf.data.experimental.cardinality(dataset).numpy()
-    train_batches = int(0.8 * total_batches)
-    val_batches = int(0.1 * total_batches)
+    val_full_ds = tf.keras.preprocessing.image_dataset_from_directory(
+        data_dir,
+        class_names=CLASS_NAMES,
+        validation_split=0.2,
+        subset="validation",
+        seed=SEED,
+        image_size=(IMAGE_SIZE, IMAGE_SIZE),
+        batch_size=BATCH_SIZE,
+    )
 
-    train_ds = dataset.take(train_batches)
-    remaining_ds = dataset.skip(train_batches)
-    val_ds = remaining_ds.take(val_batches)
-    test_ds = remaining_ds.skip(val_batches)
+    val_batches = tf.data.experimental.cardinality(val_full_ds).numpy() // 2
+    val_ds = val_full_ds.take(val_batches)
+    test_ds = val_full_ds.skip(val_batches)
 
     return train_ds, val_ds, test_ds
 
@@ -73,46 +79,31 @@ def prepare_datasets(
     val_ds: tf.data.Dataset,
     test_ds: tf.data.Dataset,
 ) -> Tuple[tf.data.Dataset, tf.data.Dataset, tf.data.Dataset]:
-    """Normalize datasets, augment training images, and enable prefetching."""
-    resize_and_rescale = tf.keras.Sequential(
-        [
-            layers.Resizing(IMAGE_SIZE, IMAGE_SIZE),
-            layers.Rescaling(1.0 / 255),
-        ],
-        name="resize_and_rescale",
-    )
-
+    """Augment training images and enable prefetching. Rescaling is performed inside the CNN."""
     data_augmentation = tf.keras.Sequential(
         [
             layers.RandomFlip("horizontal_and_vertical"),
-            layers.RandomRotation(0.2),
-            layers.RandomZoom(0.1),
+            layers.RandomRotation(0.1),
+            layers.RandomZoom(0.08),
         ],
         name="data_augmentation",
     )
 
-    def augment(images: tf.Tensor, labels: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
-        images = resize_and_rescale(images)
-        images = data_augmentation(images, training=True)
-        return images, labels
-
-    def normalize(images: tf.Tensor, labels: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
-        return resize_and_rescale(images), labels
-
     autotune = tf.data.AUTOTUNE
-    train_ds = train_ds.map(augment, num_parallel_calls=autotune)
-    train_ds = train_ds.cache().shuffle(1000, seed=SEED).prefetch(autotune)
-    val_ds = val_ds.map(normalize, num_parallel_calls=autotune).cache().prefetch(autotune)
-    test_ds = test_ds.map(normalize, num_parallel_calls=autotune).cache().prefetch(autotune)
+    train_ds = train_ds.map(lambda x, y: (data_augmentation(x, training=True), y), num_parallel_calls=autotune)
+    train_ds = train_ds.prefetch(autotune)
+    val_ds = val_ds.prefetch(autotune)
+    test_ds = test_ds.prefetch(autotune)
 
     return train_ds, val_ds, test_ds
 
 
-def build_model() -> tf.keras.Model:
-    """Build and compile the requested six-block CNN architecture."""
+def build_model(num_classes: int = NUM_CLASSES) -> tf.keras.Model:
+    """Build and compile a 6-block Deep Convolutional Neural Network."""
     model = models.Sequential(
         [
-            layers.Input(shape=(IMAGE_SIZE, IMAGE_SIZE, CHANNELS)),
+            layers.Input(shape=(IMAGE_SIZE, IMAGE_SIZE, CHANNELS), name="input_leaf"),
+            layers.Rescaling(1.0 / 255.0, name="rescaling"),
             layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
             layers.MaxPooling2D(),
             layers.Conv2D(64, (3, 3), activation="relu", padding="same"),
@@ -127,14 +118,13 @@ def build_model() -> tf.keras.Model:
             layers.MaxPooling2D(),
             layers.Flatten(),
             layers.Dense(256, activation="relu"),
-            layers.Dropout(0.4),
-            layers.Dense(NUM_CLASSES, activation="softmax"),
+            layers.Dropout(0.35),
+            layers.Dense(num_classes, activation="softmax", name="predictions"),
         ],
         name="plant_disease_cnn",
     )
-
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(),
+        optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=1e-3),
         loss="sparse_categorical_crossentropy",
         metrics=["accuracy"],
     )
@@ -174,6 +164,88 @@ def plot_training_history(history: tf.keras.callbacks.History, output_path: str 
     plt.savefig(output_path, dpi=150)
     plt.close()
     print(f"Training history plot saved to {output_path}")
+
+
+def predictions_on_ds(model: tf.keras.Model, ds: tf.data.Dataset) -> tuple[np.ndarray, np.ndarray]:
+    """Collect true labels and predicted labels for every batch in a dataset."""
+    y_true: list[int] = []
+    y_pred: list[int] = []
+    for images, labels in ds:
+        preds = model.predict(images, verbose=0)
+        y_true.extend(labels.numpy().tolist())
+        y_pred.extend(np.argmax(preds, axis=1).tolist())
+    return np.array(y_true), np.array(y_pred)
+
+
+def plot_confusion_matrix(
+    cm: np.ndarray,
+    class_names: list[str],
+    output_path: str = "models/confusion_matrix.png",
+) -> None:
+    """Save a labeled, row-normalized confusion-matrix heatmap as an image."""
+    import itertools
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    cm_counts = cm.astype(int)
+    cm = cm.astype(float)
+    row_sums = cm.sum(axis=1, keepdims=True)
+    cm_norm = np.divide(cm, row_sums, out=np.zeros_like(cm), where=row_sums != 0)
+
+    fig, ax = plt.subplots(figsize=(12, 10))
+    im = ax.imshow(cm_norm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    ax.set(
+        xticks=np.arange(cm.shape[1]),
+        yticks=np.arange(cm.shape[0]),
+        xticklabels=class_names,
+        yticklabels=class_names,
+        ylabel="True label",
+        xlabel="Predicted label",
+        title="Confusion Matrix (row-normalized)",
+    )
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+
+    thresh = cm_norm.max() / 2.0
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        ax.text(
+            j,
+            i,
+            f"{cm_counts[i, j]:d}\n({cm_norm[i, j]:.2f})",
+            ha="center",
+            va="center",
+            color="white" if cm_norm[i, j] > thresh else "black",
+            fontsize=7,
+        )
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+    print(f"Confusion matrix saved to {output_path}")
+
+
+def evaluate(
+    model_path: str = MODEL_SAVE_PATH,
+    data_dir: str = "data/PlantVillage",
+) -> tuple[float, np.ndarray]:
+    """Evaluate the saved model on the test split; return accuracy + confusion matrix."""
+    if not Path(model_path).exists():
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+    train_ds, val_ds, test_ds = load_dataset(data_dir)
+    train_ds, val_ds, test_ds = prepare_datasets(train_ds, val_ds, test_ds)
+    model = tf.keras.models.load_model(model_path)
+
+    test_loss, test_accuracy = model.evaluate(test_ds)
+    print(f"Test loss: {test_loss:.4f}")
+    print(f"Test accuracy: {test_accuracy * 100:.2f}%")
+
+    y_true, y_pred = predictions_on_ds(model, test_ds)
+    accuracy = float(np.mean(y_true == y_pred))
+    print(f"Prediction accuracy: {accuracy * 100:.2f}%")
+
+    cm = np.zeros((NUM_CLASSES, NUM_CLASSES), dtype=int)
+    for t, p in zip(y_true, y_pred):
+        cm[t, p] += 1
+    plot_confusion_matrix(cm, CLASS_NAMES)
+    return accuracy, cm
 
 
 def train(
@@ -217,6 +289,13 @@ def train(
     test_loss, test_accuracy = model.evaluate(test_ds)
     print(f"Test accuracy: {test_accuracy * 100:.2f}%")
     print(f"Test loss: {test_loss:.4f}")
+
+    # Confusion matrix on the held-out test set
+    y_true, y_pred = predictions_on_ds(model, test_ds)
+    cm = np.zeros((NUM_CLASSES, NUM_CLASSES), dtype=int)
+    for t, p in zip(y_true, y_pred):
+        cm[t, p] += 1
+    plot_confusion_matrix(cm, CLASS_NAMES)
 
     model.save(model_save_path)
     print(f"Model saved to {model_save_path}")
@@ -287,15 +366,23 @@ def parse_args() -> argparse.Namespace:
         default=EPOCHS,
         help=f"Number of epochs to train (default: {EPOCHS}).",
     )
+    parser.add_argument(
+        "--eval",
+        action="store_true",
+        help="Evaluate the saved model and produce accuracy + confusion matrix instead of training.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    if not os.path.isdir(args.data_dir):
-        raise SystemExit(
-            f"Dataset directory not found: {args.data_dir}\n"
-            "Download PlantVillage from https://www.kaggle.com/datasets/arjuntejaswi/plant-village "
-            "and place it at data/PlantVillage/."
-        )
-    train(args.data_dir, args.model_path, epochs=args.epochs)
+    if args.eval:
+        evaluate(args.model_path, args.data_dir)
+    else:
+        if not os.path.isdir(args.data_dir):
+            raise SystemExit(
+                f"Dataset directory not found: {args.data_dir}\n"
+                "Download PlantVillage from https://www.kaggle.com/datasets/arjuntejaswi/plant-village "
+                "and place it at data/PlantVillage/."
+            )
+        train(args.data_dir, args.model_path, epochs=args.epochs)

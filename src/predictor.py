@@ -105,15 +105,19 @@ class PlantDiseasePredictor:
         self.model = tf.keras.models.load_model(self.model_path)
 
     def preprocess_image(self, image_bytes: bytes) -> np.ndarray:
-        """Convert raw image bytes into a 256x256 normalized float32 RGB array."""
+        """Convert raw image bytes into a 224x224 float32 RGB array.
+        
+        Note: The CNN model contains an internal layers.Rescaling(1.0/255.0) layer,
+        so raw [0, 255] float32 values are expected as input.
+        """
         try:
             image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         except UnidentifiedImageError as exc:
             raise ValueError("Uploaded file is not a valid image.") from exc
 
         image = image.resize((IMAGE_SIZE, IMAGE_SIZE))
-        image_array = np.asarray(image, dtype=np.float32) / 255.0
-        return image_array.astype(np.float32)
+        image_array = np.asarray(image, dtype=np.float32)
+        return image_array
 
     def predict(self, image_bytes: bytes) -> dict[str, Any]:
         """Run inference and return class, confidence, disease info, and top-3 predictions."""

@@ -19,10 +19,11 @@ env/
 Thumbs.db
 ~$*
 
-# Model weights (large files - use Git LFS or share via Drive/HuggingFace)
-models/*.keras
-models/*.h5
+# Model weights
+!models/plant_disease_model.keras
 !models/training_history.png
+!models/confusion_matrix.png
+models/*.h5
 
 # Local datasets
 Dataset/

@@ -1,0 +1,15 @@
+.venv
+venv
+__pycache__
+*.pyc
+.git
+.gitignore
+data/
+Dataset/
+base.apk
+*.code-workspace
+*.pdf
+*.pptx
+*.html
+static/uploads/*
+!static/uploads/.gitkeep
