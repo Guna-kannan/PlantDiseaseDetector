@@ -1,25 +1,15 @@
-# 🐳 Docker → Podman Migration
+# 🦭 Podman Commands — PlantDiseaseDetector
 
-> ⚠️ **This project has migrated from Docker to Podman.**
-> Please refer to **[PODMAN_COMMANDS.md](./PODMAN_COMMANDS.md)** for the full up-to-date command reference.
+> Complete reference of all **Podman** commands used in the **PlantDiseaseDetector** project.
+> The app runs as a multi-container stack: **FastAPI (CNN API)** + **Nginx (reverse proxy)**.
 
-Podman is a daemonless, rootless, OCI-compliant drop-in replacement for Docker.
-All `docker` commands work identically by replacing `docker` with `podman`.
-
-```bash
-# Quick alias — use docker as podman
-alias docker=podman
-```
-
-➡️ **See full guide:** [PODMAN_COMMANDS.md](./PODMAN_COMMANDS.md)
+> [!NOTE]
+> Podman is a **daemonless, rootless**, OCI-compliant drop-in replacement for Docker.
+> No root daemon required — more secure by default and native on RHEL/Fedora/OpenShift.
 
 ---
 
-> The commands below are kept for historical reference only.
-
----
-
-## 📁 Project Docker Files
+## 📁 Project Container Files
 
 | File | Purpose |
 |:--|:--|
@@ -30,17 +20,34 @@ alias docker=podman
 
 ---
 
+## 0. ⚙️ Install Podman
+
+```bash
+# macOS (via Homebrew)
+brew install podman
+
+# Initialize and start the Podman machine (macOS only)
+podman machine init
+podman machine start
+
+# Verify installation
+podman --version
+podman info
+```
+
+---
+
 ## 1. 🔨 Build the Image
 
 ```bash
 # Build from project root (uses Dockerfile)
-docker build -t plant-disease-detector:latest .
+podman build -t plant-disease-detector:latest .
 
 # Build with a version tag
-docker build -t plant-disease-detector:v1.0.0 .
+podman build -t plant-disease-detector:v1.0.0 .
 
 # Force fresh build — no cache
-docker build --no-cache -t plant-disease-detector:latest .
+podman build --no-cache -t plant-disease-detector:latest .
 ```
 
 ---
@@ -49,53 +56,65 @@ docker build --no-cache -t plant-disease-detector:latest .
 
 ```bash
 # Basic run — exposes API on port 8001
-docker run -p 8001:8000 plant-disease-detector:latest
+podman run -p 8001:8000 plant-disease-detector:latest
 
 # Run in detached (background) mode with a name
-docker run -d \
+podman run -d \
   -p 8001:8000 \
   --name plant-disease-detector-app \
   plant-disease-detector:latest
 
 # Run with volume mounts (persist model weights + uploads)
-docker run -d \
+# Note: :z flag relabels volumes for SELinux compatibility
+podman run -d \
   -p 8001:8000 \
   --name plant-disease-detector-app \
-  -v ./models:/app/models:ro \
-  -v ./static/uploads:/app/static/uploads:rw \
+  -v ./models:/app/models:ro,z \
+  -v ./static/uploads:/app/static/uploads:rw,z \
   plant-disease-detector:latest
 ```
 
 ---
 
-## 3. 🧩 Docker Compose (FastAPI + Nginx)
+## 3. 🧩 Podman Compose (FastAPI + Nginx)
 
 ```bash
+# Install podman-compose (first time only)
+pip install podman-compose
+
 # Start all services
-docker compose up
+podman-compose up
 
 # Start in detached / background mode
-docker compose up -d
+podman-compose up -d
 
 # Rebuild images before starting
-docker compose up --build
+podman-compose up --build
 
 # Stop all services
-docker compose down
+podman-compose down
 
 # Stop and remove volumes
-docker compose down -v
+podman-compose down -v
 
 # View status of all services
-docker compose ps
+podman-compose ps
 
 # View live logs for all services
-docker compose logs -f
+podman-compose logs -f
 
 # View logs for a specific service
-docker compose logs -f plant-disease-detector
-docker compose logs -f nginx
+podman-compose logs -f plant-disease-detector
+podman-compose logs -f nginx
 ```
+
+> [!TIP]
+> Podman 4.x+ also ships a native subcommand (no hyphen):
+> ```bash
+> podman compose up -d
+> podman compose down
+> podman compose logs -f
+> ```
 
 ---
 
@@ -103,31 +122,34 @@ docker compose logs -f nginx
 
 ```bash
 # List running containers
-docker ps
+podman ps
 
 # List all containers (including stopped)
-docker ps -a
+podman ps -a
 
 # Real-time CPU / memory usage
-docker stats
+podman stats
 
 # View logs
-docker logs plant-disease-detector-app
-docker logs -f plant-disease-detector-app    # follow/live stream
+podman logs plant-disease-detector-app
+podman logs -f plant-disease-detector-app    # follow/live stream
 
 # Start / stop / restart
-docker start plant-disease-detector-app
-docker stop plant-disease-detector-app
-docker restart plant-disease-detector-app
+podman start plant-disease-detector-app
+podman stop plant-disease-detector-app
+podman restart plant-disease-detector-app
 
 # Remove a container
-docker rm plant-disease-detector-app
+podman rm plant-disease-detector-app
 
 # Open an interactive shell inside a running container
-docker exec -it plant-disease-detector-app bash
+podman exec -it plant-disease-detector-app bash
 
 # Check built-in health status
-docker inspect --format='{{.State.Health.Status}}' plant-disease-detector-app
+podman inspect --format='{{.State.Health.Status}}' plant-disease-detector-app
+
+# View detailed container metadata
+podman inspect plant-disease-detector-app
 ```
 
 ---
@@ -136,19 +158,26 @@ docker inspect --format='{{.State.Health.Status}}' plant-disease-detector-app
 
 ```bash
 # List local images
-docker images
+podman images
 
 # Remove an image
-docker rmi plant-disease-detector:latest
+podman rmi plant-disease-detector:latest
 
-# Tag image for Docker Hub
-docker tag plant-disease-detector:latest gunakannan/plant-disease-detector:latest
+# Login to Docker Hub
+podman login docker.io
+
+# Tag image for Docker Hub (full registry path required)
+podman tag plant-disease-detector:latest docker.io/gunakannan/plant-disease-detector:latest
 
 # Push to Docker Hub
-docker push gunakannan/plant-disease-detector:latest
+podman push docker.io/gunakannan/plant-disease-detector:latest
 
 # Pull from Docker Hub
-docker pull gunakannan/plant-disease-detector:latest
+podman pull docker.io/gunakannan/plant-disease-detector:latest
+
+# Push to Quay.io (Red Hat registry)
+podman tag plant-disease-detector:latest quay.io/gunakannan/plant-disease-detector:latest
+podman push quay.io/gunakannan/plant-disease-detector:latest
 ```
 
 ---
@@ -156,24 +185,33 @@ docker pull gunakannan/plant-disease-detector:latest
 ## 6. 🌐 Network & Volume
 
 ```bash
-# List all Docker networks
-docker network ls
+# List all Podman networks
+podman network ls
 
 # Inspect the project bridge network
-docker network inspect plantdiseasedetector_plant-net
+podman network inspect plantdiseasedetector_plant-net
 
-# List Docker volumes
-docker volume ls
+# Create a named network manually
+podman network create plant-net
+
+# List volumes
+podman volume ls
+
+# Remove a named volume
+podman volume rm plant-disease-detector_uploads
 
 # Clean up all stopped containers, unused images, and networks
-docker system prune -f
+podman system prune -f
+
+# Podman system info
+podman system info
 ```
 
 ---
 
 ## 7. ❤️ Health Check
 
-The [`Dockerfile`](./Dockerfile) includes a built-in health check that Docker polls every **30 seconds**:
+The [`Dockerfile`](./Dockerfile) includes a built-in health check that Podman polls every **30 seconds**:
 
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
@@ -185,6 +223,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 ```bash
 curl http://localhost:8001/health
 # → {"status":"ok","model_loaded":true,"model_path":"models/plant_disease_model.keras"}
+
+# Run health check via Podman
+podman healthcheck run plant-disease-detector-app
 ```
 
 ---
@@ -207,23 +248,45 @@ curl http://localhost:8001/health
 git clone https://github.com/Guna-kannan/PlantDiseaseDetector.git
 cd PlantDiseaseDetector
 
+# (macOS only) Start Podman machine
+podman machine start
+
 # Start the full stack (FastAPI + Nginx)
-docker compose up --build -d
+podman-compose up --build -d
 
 # Check everything is healthy
-docker compose ps
+podman-compose ps
 curl http://localhost:8001/health
 
 # Open the app in your browser
 open http://localhost:8080
 
 # Tear down
-docker compose down
+podman-compose down
 ```
 
 ---
 
-## 10. 🧰 Dockerfile Summary
+## 10. 🔧 Generate systemd Service (Auto-start on Boot)
+
+Podman can generate a **systemd unit file** to run the container as a service:
+
+```bash
+# Generate systemd unit file
+podman generate systemd --name plant-disease-detector-app --files --new
+
+# Install and enable the service
+mv container-plant-disease-detector-app.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now container-plant-disease-detector-app.service
+
+# Check service status
+systemctl --user status container-plant-disease-detector-app.service
+```
+
+---
+
+## 11. 🧰 Containerfile / Dockerfile Summary
 
 ```
 FROM python:3.10-slim
@@ -232,7 +295,7 @@ FROM python:3.10-slim
 ├── COPY requirements.txt → pip install
 ├── COPY . .
 ├── RUN mkdir models static/uploads + set permissions
-├── USER 1001 (non-root)
+├── USER 1001 (non-root — rootless compatible)
 ├── EXPOSE 8000
 ├── HEALTHCHECK every 30s → GET /health
 └── CMD uvicorn app:app --host 0.0.0.0 --port 8000
@@ -240,4 +303,31 @@ FROM python:3.10-slim
 
 ---
 
+## 12. 🐳 Docker → Podman Cheat Sheet
+
+| Task | Old (Docker) | New (Podman) |
+|:--|:--|:--|
+| Build image | `docker build` | `podman build` |
+| Run container | `docker run` | `podman run` |
+| List containers | `docker ps` | `podman ps` |
+| List images | `docker images` | `podman images` |
+| View logs | `docker logs` | `podman logs` |
+| Execute inside | `docker exec` | `podman exec` |
+| Push image | `docker push user/img` | `podman push docker.io/user/img` |
+| Pull image | `docker pull user/img` | `podman pull docker.io/user/img` |
+| Compose up | `docker compose up` | `podman-compose up` |
+| System cleanup | `docker system prune` | `podman system prune` |
+| Run as root? | ✅ Yes (daemon) | ❌ No (rootless) |
+| Requires daemon? | ✅ Yes | ❌ No |
+| systemd support | ❌ Limited | ✅ Native |
+
+> [!TIP]
+> Create a shell alias so existing scripts keep working:
+> ```bash
+> echo "alias docker=podman" >> ~/.zshrc && source ~/.zshrc
+> ```
+
+---
+
 *Generated for PlantDiseaseDetector · CNN-based plant leaf disease classification*
+*Podman: daemonless · rootless · OCI-compliant*
