@@ -1,7 +1,21 @@
-# 🐳 Docker Commands — PlantDiseaseDetector
+# 🐳 Docker → Podman Migration
 
-> Complete reference of all Docker commands used in the **PlantDiseaseDetector** project.
-> The app runs as a multi-container stack: **FastAPI (CNN API)** + **Nginx (reverse proxy)**.
+> ⚠️ **This project has migrated from Docker to Podman.**
+> Please refer to **[PODMAN_COMMANDS.md](./PODMAN_COMMANDS.md)** for the full up-to-date command reference.
+
+Podman is a daemonless, rootless, OCI-compliant drop-in replacement for Docker.
+All `docker` commands work identically by replacing `docker` with `podman`.
+
+```bash
+# Quick alias — use docker as podman
+alias docker=podman
+```
+
+➡️ **See full guide:** [PODMAN_COMMANDS.md](./PODMAN_COMMANDS.md)
+
+---
+
+> The commands below are kept for historical reference only.
 
 ---
 
