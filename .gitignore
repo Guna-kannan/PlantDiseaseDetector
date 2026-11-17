@@ -38,3 +38,9 @@ static/uploads/*
 
 # Logs
 *.log
+
+# Binary/generated report files
+*.apk
+*.docx
+project_report.html
+report_full.md
